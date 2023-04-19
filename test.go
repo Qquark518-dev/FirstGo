@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 )
 
 const substringGO = "Go"
+const MaxMachines = 3
 
 type EndpointEntries struct {
 	endpoint string
@@ -17,6 +20,7 @@ type EndpointEntries struct {
 }
 
 func main() {
+	runtime.GOMAXPROCS(MaxMachines)
 	testSlice := []string{"https://go.dev/tour/moretypes/7", "https://golangforall.com/ru/post/golang-data-handling-concurrent-programs.html", "https://freshman.tech/snippets/go/iterating-over-slices/"}
 	var ent, err = CalculateEndpointKeywordEntries(testSlice)
 	if err != nil {
@@ -40,6 +44,7 @@ func CalculateEndpointKeywordEntries(endpointSlice []string) ([]EndpointEntries,
 	syncMutes := sync.Mutex{}
 	for _, v := range endpointSlice {
 		go func(endpoint string) {
+			fmt.Println(time.Now())
 			resp, err := http.Get(endpoint)
 			if err != nil {
 				return
