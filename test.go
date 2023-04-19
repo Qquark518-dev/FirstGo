@@ -11,17 +11,30 @@ import (
 
 const substringGO = "Go"
 
+type EndpointEntries struct {
+	endpoint string
+	entries  int
+}
+
 func main() {
 	testSlice := []string{"https://go.dev/tour/moretypes/7", "https://golangforall.com/ru/post/golang-data-handling-concurrent-programs.html", "https://freshman.tech/snippets/go/iterating-over-slices/"}
-	var ent, _ = CalculateEndpointKeywordEntries(testSlice)
-	fmt.Println(ent)
+	var ent, err = CalculateEndpointKeywordEntries(testSlice)
+	if err != nil {
+		fmt.Println(err)
+	}
+	sum := 0
+	for _, v := range ent {
+		fmt.Printf("Count for %v :%v\n", v.endpoint, v.entries)
+		sum += v.entries
+	}
+	fmt.Printf("Total: %v\n", sum)
 
 }
-func CalculateEndpointKeywordEntries(endpointSlice []string) (int, error) {
+func CalculateEndpointKeywordEntries(endpointSlice []string) ([]EndpointEntries, error) {
 	if endpointSlice == nil {
-		return 0, errors.New("slice is empty")
+		return nil, errors.New("slice is empty")
 	}
-	entriesCount := 0
+	var entries = []EndpointEntries{}
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(len(endpointSlice))
 	syncMutes := sync.Mutex{}
@@ -29,21 +42,22 @@ func CalculateEndpointKeywordEntries(endpointSlice []string) (int, error) {
 		go func(endpoint string) {
 			resp, err := http.Get(endpoint)
 			if err != nil {
-				entriesCount += 0
 				return
 			}
+
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				entriesCount += 0
 				return
 			}
 			sb := string(body)
+
+			ent := EndpointEntries{endpoint: endpoint, entries: strings.Count(sb, substringGO)}
 			syncMutes.Lock()
-			entriesCount += strings.Count(sb, substringGO)
+			entries = append(entries, ent)
 			syncMutes.Unlock()
 			waitGroup.Done()
 		}(v)
 	}
 	waitGroup.Wait()
-	return entriesCount, nil
+	return entries, nil
 }
