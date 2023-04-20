@@ -11,9 +11,6 @@ import (
 	"time"
 )
 
-const substringGO = "Go"
-const MaxMachines = 3
-
 type EndpointEntries struct {
 	endpoint string
 	entries  int
