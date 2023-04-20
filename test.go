@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 )
 
 type EndpointEntries struct {
@@ -17,12 +16,14 @@ type EndpointEntries struct {
 }
 
 func main() {
-	runtime.GOMAXPROCS(MaxMachines)
-	testSlice := []string{"https://go.dev/tour/moretypes/7", "https://golangforall.com/ru/post/golang-data-handling-concurrent-programs.html", "https://freshman.tech/snippets/go/iterating-over-slices/"}
-	var ent, err = CalculateEndpointKeywordEntries(testSlice)
+	runtime.GOMAXPROCS(MaxThreads)
+	endpointSlice := []string{"https://go.dev/tour/moretypes/7", "https://golangforall.com/ru/post/golang-data-handling-concurrent-programs.html", "https://freshman.tech/snippets/go/iterating-over-slices/"}
+
+	var ent, err = CalculateEndpointKeywordEntries(endpointSlice)
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	sum := 0
 	for _, v := range ent {
 		fmt.Printf("Count for %v :%v\n", v.endpoint, v.entries)
@@ -31,8 +32,9 @@ func main() {
 	fmt.Printf("Total: %v\n", sum)
 
 }
+
 func CalculateEndpointKeywordEntries(endpointSlice []string) ([]EndpointEntries, error) {
-	if endpointSlice == nil {
+	if len(endpointSlice) == 0 {
 		return nil, errors.New("slice is empty")
 	}
 	var entries = []EndpointEntries{}
@@ -41,25 +43,36 @@ func CalculateEndpointKeywordEntries(endpointSlice []string) ([]EndpointEntries,
 	syncMutes := sync.Mutex{}
 	for _, v := range endpointSlice {
 		go func(endpoint string) {
-			fmt.Println(time.Now())
-			resp, err := http.Get(endpoint)
-			if err != nil {
-				return
+			stringBody, err := GetStringResponse(endpoint)
+			KeywordEntries := 0
+			if err == nil {
+				KeywordEntries = strings.Count(stringBody, substringGO)
 			}
+			ent := EndpointEntries{endpoint: endpoint, entries: KeywordEntries}
 
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return
-			}
-			sb := string(body)
-
-			ent := EndpointEntries{endpoint: endpoint, entries: strings.Count(sb, substringGO)}
 			syncMutes.Lock()
 			entries = append(entries, ent)
 			syncMutes.Unlock()
+
 			waitGroup.Done()
 		}(v)
 	}
 	waitGroup.Wait()
 	return entries, nil
+}
+
+func GetStringResponse(endpoint string) (string, error) {
+	if len(endpoint) == 0 {
+		return "", errors.New("Endpoint is empty")
+	}
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return "", err
+	}
+	body, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
